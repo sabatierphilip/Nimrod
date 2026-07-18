@@ -35,3 +35,14 @@ export async function postMLTraining(payload: Record<string, unknown>): Promise<
   if (!response.ok) throw new Error("Unable to run ML experiment. Check backend dependencies and try again.");
   return response.json();
 }
+
+
+export type TradeRecommendation = {
+  rank: number; symbol: string; buy_price: number; expected_return: number; probability: number; confidence: string; risk_score: number; liquidity_score: number; momentum_score: number; trend_score: number; volatility_score: number; final_opportunity_score: number; quantity: number; allocated_capital: number; reasons: string[];
+};
+export type RecommendResponse = { disclaimer: string; mode: string; as_of: string; recommendations: TradeRecommendation[]; portfolio_metrics: { expected_portfolio_return: number; risk_rating: string; diversification: string; suggested_allocation: Record<string, number>; total_allocated: number; cash_remaining: number; estimated_costs: number; actual_return: number | null; profit_loss: number | null; win_rate: number | null; benchmark_return: number | null; drawdown: number | null; equity_curve: Array<Record<string, string | number>>; }; trade_log: Array<Record<string, string | number>>; model_confidence: number; reasoning: string[]; warnings: string[]; };
+export async function postRecommendations(payload: Record<string, unknown>): Promise<RecommendResponse> {
+  const response = await fetch(`${API_BASE_URL}/recommend`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  if (!response.ok) throw new Error("Unable to generate ML recommendations. Check dates, capital, and backend market data.");
+  return response.json();
+}

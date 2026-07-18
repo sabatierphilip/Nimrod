@@ -10,13 +10,18 @@ class MarketDataService:
         self.ttl_seconds = ttl_seconds
         self._cache: dict[str, tuple[float, pd.DataFrame]] = {}
 
-    def history(self, symbol: str, period: str = "6mo", interval: str = "1d") -> pd.DataFrame:
-        key = f"{symbol}:{period}:{interval}"
+    def history(self, symbol: str, period: str = "6mo", interval: str = "1d", start: str | None = None, end: str | None = None) -> pd.DataFrame:
+        key = f"{symbol}:{period}:{interval}:{start}:{end}"
         cached = self._cache.get(key)
         if cached and time.time() - cached[0] < self.ttl_seconds:
             return cached[1]
         try:
-            frame = yf.Ticker(symbol).history(period=period, interval=interval, auto_adjust=False)
+            kwargs = {"interval": interval, "auto_adjust": False}
+            if start or end:
+                kwargs.update({"start": start, "end": end})
+            else:
+                kwargs["period"] = period
+            frame = yf.Ticker(symbol).history(**kwargs)
             if frame.empty:
                 raise ValueError("empty Yahoo Finance response")
         except Exception:
@@ -24,8 +29,9 @@ class MarketDataService:
         self._cache[key] = (time.time(), frame)
         return frame
 
-    def screen_universe(self, max_price: float | None = None) -> list[str]:
-        symbols = ["AAPL", "MSFT", "NVDA", "AMD", "TSLA", "META", "GOOGL", "AMZN", "JPM", "XOM", "TCS.NS", "TATAMOTORS.NS", "INFY.NS"]
+    def screen_universe(self, max_price: float | None = None, market: str | None = None) -> list[str]:
+        from app.services.india_market import NSE_UNIVERSE
+        symbols = NSE_UNIVERSE if market in {"NSE", "NIFTY 50", "NIFTY NEXT 50", "NIFTY MIDCAP", "BANK NIFTY"} else ["AAPL", "MSFT", "NVDA", "AMD", "TSLA", "META", "GOOGL", "AMZN", "JPM", "XOM", "TCS.NS", "TATAMOTORS.NS", "INFY.NS"]
         if max_price is None:
             return symbols
         return [symbol for symbol in symbols if float(self.history(symbol)["Close"].iloc[-1]) <= max_price]

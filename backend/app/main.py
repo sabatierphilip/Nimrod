@@ -3,12 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.models.market import SimpleModeRequest
 from app.models.trading import JournalEntry, PaperTrade
-from app.schemas.api import ApiMessage, ChatRequest, ChatResponse, MLTrainingRequest, MLSimulationRequest, SimpleModeResponse
+from app.schemas.api import ApiMessage, ChatRequest, ChatResponse, MLTrainingRequest, MLSimulationRequest, RecommendRequest, RecommendResponse, SimpleModeResponse
 from app.services.llm import GroqLLMService
 from app.services.market_data import MarketDataService
 from app.services.news import NewsService
 from app.services.recommendations import RecommendationService
 from app.services.risk import RiskManagementService
+from app.services.trade_finder import AITradeFinderService
 from app.ml.config import ModelSpec, SimulationConfig, TrainingConfig
 from app.ml.explanations import MLExplanationService
 from app.ml.reporting import ReportGenerator
@@ -22,6 +23,7 @@ app = FastAPI(title=settings.app_name, version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_methods=["*"], allow_headers=["*"])
 market_data = MarketDataService(settings.cache_ttl_seconds)
 recommendations = RecommendationService(market_data)
+trade_finder = AITradeFinderService(market_data)
 news = NewsService()
 llm = GroqLLMService()
 ml_explainer = MLExplanationService(llm)
@@ -37,6 +39,14 @@ def health() -> ApiMessage:
 @app.get("/disclaimer", response_model=ApiMessage)
 def disclaimer() -> ApiMessage:
     return ApiMessage(message=DISCLAIMER)
+
+
+@app.post("/recommend", response_model=RecommendResponse)
+def recommend(request: RecommendRequest) -> RecommendResponse:
+    try:
+        return trade_finder.recommend(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/simple", response_model=SimpleModeResponse)
